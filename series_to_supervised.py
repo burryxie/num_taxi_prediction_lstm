@@ -1,25 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Oct 17 09:16:37 2017
+Created on Tue Oct 17 22:20:12 2017
 
-@author: Xie-Kaiqiang
+@author: Xie
 """
-import numpy as np
-
-# convert series to supervised learning
-def series_to_supervised(data, n_in=1,n_out=1, perc_train=0.7):
-    x,y = [],[]
-    for i in range(data.shape[0]-n_in-1):
-        x.append(data[i:i+n_in,:].flatten())
-        y.append(data[i+n_in,:].flatten())
-    
-    num_train = round(data.shape[0]*perc_train)
-    train_x,train_y = x[0:num_train],y[0:num_train]
-    test_x,test_y = x[num_train:],y[num_train:]
-    
-    train_x = np.array(train_x)
-    train_y = np.array(train_y)
-    test_x = np.array(test_x)
-    test_y = np.array(test_y)
-    
-    return train_x,train_y,test_x,test_y
+from pandas import DataFrame,concat
+def series_to_supervised(data, n_in=1, n_out=1, dropnan=True):
+	n_vars = 1 if type(data) is list else data.shape[1]
+	df = DataFrame(data)
+	cols, names = list(), list()
+	# input sequence (t-n, ... t-1)
+	for i in range(n_in, 0, -1):
+		cols.append(df.shift(i))
+		names += [('var%d(t-%d)' % (j+1, i)) for j in range(n_vars)]
+	# forecast sequence (t, t+1, ... t+n)
+	for i in range(0, n_out):
+		cols.append(df.shift(-i))
+		if i == 0:
+			names += [('var%d(t)' % (j+1)) for j in range(n_vars)]
+		else:
+			names += [('var%d(t+%d)' % (j+1, i)) for j in range(n_vars)]
+	# put it all together
+	agg = concat(cols, axis=1)
+	agg.columns = names
+	# drop rows with NaN values
+	if dropnan:
+		agg.dropna(inplace=True)
+	return agg
